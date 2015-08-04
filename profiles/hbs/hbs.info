@@ -15,7 +15,7 @@ dependencies[] = ctools
 dependencies[] = dashboard
 dependencies[] = date
 dependencies[] = date_api
-dependencies[] = devel
+
 dependencies[] = entity
 dependencies[] = entityreference
 dependencies[] = features
