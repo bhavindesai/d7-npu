@@ -1,0 +1,11 @@
+<?php
+
+/**
+ * @file
+ * Code for the NPU Base feature.
+ */
+include_once 'npu_base.features.inc';
+
+function npu_base_preprocess_page(&$variables) {
+
+}
