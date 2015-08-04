@@ -1,0 +1,16 @@
+name = NRA Workbench Integration
+description = Integrates the NRA module with Workbench
+core = 7.x
+
+dependencies[] = nra
+dependencies[] = workbench_moderation
+
+package = Administration
+files[] = tests/*.test
+
+
+; Information added by drush on 2014-11-17
+version = ""
+project = "nra_workbench_moderation"
+datestamp = "1416241121"
+

@@ -1,0 +1,20 @@
+/* Not likely, this is mobile first - this themer is rocking the hardest! */
+
+
+#branding, #logo {
+  padding: 0;
+  margin: 0;
+}
+.mr-bod #header, .txt-bod #header {
+  background: #004667 url(/sites/all/themes/mix_and_match/images/bg-masthead.gif) repeat-x top left;
+}
+.accessibility-console-content p {
+  color: black;
+}
+.accessibility-console {
+  max-width: 450px;
+}
+#panels-ipe-control-container {
+  right: 20px;
+  max-width: 30%;
+}

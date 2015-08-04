@@ -1,0 +1,10 @@
+name = Workbench Moderation Notes
+description = Adds a note field to workbench moderation.
+package = Workbench
+core = 7.x
+
+; Information added by drush on 2014-11-17
+version = ""
+project = "workbench_moderation_notes"
+datestamp = "1416241074"
+

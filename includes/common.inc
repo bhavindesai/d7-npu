@@ -3610,7 +3610,7 @@ function drupal_build_css_cache($css) {
     $uri = $map[$key];
   }
 
-  if (empty($uri) || !file_exists($uri)) {
+  if (empty($uri) || !drupal_aggregated_file_exists($uri)) {
     // Build aggregate CSS file.
     foreach ($css as $stylesheet) {
       // Only 'file' stylesheets can be aggregated.
@@ -4991,6 +4991,19 @@ function drupal_add_tabledrag($table_id, $action, $relationship, $group, $subgro
   drupal_add_js($settings, 'setting');
 }
 
+function drupal_aggregated_file_exists($uri) {
+  if (function_exists('apc_exists')) {
+    $exists = apc_exists('file_exists_' . $uri);
+    if (!$exists && file_exists($uri)) {
+      $exists = TRUE;
+      apc_store('file_exists_' . $uri, TRUE, 86400);
+    }
+    return $exists;
+  }
+  // If no APC available, fall back to default.
+  return file_exists($uri);
+}
+
 /**
  * Aggregates JavaScript files into a cache file in the files directory.
  *
@@ -5030,7 +5043,7 @@ function drupal_build_js_cache($files) {
     $uri = $map[$key];
   }
 
-  if (empty($uri) || !file_exists($uri)) {
+  if (empty($uri) || !drupal_aggregated_file_exists($uri)) {
     // Build aggregate JS file.
     foreach ($files as $path => $info) {
       if ($info['preprocess']) {
@@ -5038,6 +5051,10 @@ function drupal_build_js_cache($files) {
         $contents .= file_get_contents($path) . ";\n";
       }
     }
+
+    // Allow modules to act on the js_cache before writing to disk.
+    drupal_alter('js_cache', $contents);
+
     // Prefix filename to prevent blocking by firewalls which reject files
     // starting with "ad*".
     $filename = 'js_' . drupal_hash_base64($contents) . '.js';
@@ -6329,13 +6346,21 @@ function drupal_render_cid_parts($granularity = NULL) {
   }
 
   if (!empty($granularity)) {
+    $cache_per_role = $granularity & DRUPAL_CACHE_PER_ROLE;
+    $cache_per_user = $granularity & DRUPAL_CACHE_PER_USER;
+    // User 1 has special permissions outside of the role system, so when
+    // caching per role is requested, it should cache per user instead.
+    if ($user->uid == 1 && $cache_per_role) {
+      $cache_per_user = TRUE;
+      $cache_per_role = FALSE;
+    }
     // 'PER_ROLE' and 'PER_USER' are mutually exclusive. 'PER_USER' can be a
     // resource drag for sites with many users, so when a module is being
     // equivocal, we favor the less expensive 'PER_ROLE' pattern.
-    if ($granularity & DRUPAL_CACHE_PER_ROLE) {
+    if ($cache_per_role) {
       $cid_parts[] = 'r.' . implode(',', array_keys($user->roles));
     }
-    elseif ($granularity & DRUPAL_CACHE_PER_USER) {
+    elseif ($cache_per_user) {
       $cid_parts[] = "u.$user->uid";
     }
 

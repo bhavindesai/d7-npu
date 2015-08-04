@@ -1,0 +1,171 @@
+<?php
+/**
+ * implements hook_node_revision_operations()
+ */
+function nra_workbench_moderation_node_revision_operations() {
+  $operations = array();
+  foreach(workbench_moderation_state_labels() as $key => $label) {
+    $operations["workbench_$key"] = array(
+      'label' => t('Transition to @label', array('@label' => $label)),
+      'callback' => 'nra_workbench_moderation_operation',
+      'callback arguments' => array($key),
+    );
+  }
+  return $operations;
+
+}
+/*
+ * The callback used on the workbench_schedule node revision operation
+ */
+ 
+function nra_workbench_moderation_operation($nodes, $key) {
+  $s_key = 'nra_workbench_moderation_operation';
+  $_SESSION[$s_key]= $nodes;
+  drupal_goto("admin/content/content-revision/workbench_operation/$key/$s_key", array('query'=> drupal_get_destination()));
+}
+/**
+ * call back page for admin/content/content-revision/workbench_schedule/%
+ *
+ * @param $key
+ *   the session key to look up on which revisions to operate
+ */
+function nra_workbench_moderation_operation_form_page($key, $s_key) {
+  $nodes = $_SESSION[$s_key];
+  return drupal_get_form('nra_workbench_moderation_operation_form', $key, $nodes);
+}
+/**
+ * The form used on the admin/content/content-revision/workbench_schedule/% page
+ *
+ * basic scheduling form used for setting the time and if it should be published or 
+ * unpublished
+ */
+function nra_workbench_moderation_operation_form($form, $form_state) {
+  $key = $form_state['build_info']['args'][0];
+  $nodes = $form_state['build_info']['args'][1];
+  $form = array();
+  $items = array();
+  foreach($nodes as $info) {
+    $node = node_load($info['nid'], $info['vid']);
+    $items[] = $node->title;
+    
+  }
+  $form['list'] = array(
+    '#theme' => 'item_list',
+    '#items' => $items,
+    '#title' => t('Revision to transition to @state',array('@state'=> workbench_moderation_state_label($key))),
+  );
+  drupal_set_title(t('Transition to @state', array('@state'=> workbench_moderation_state_label($key))));
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Transistion'),
+  );
+  $form['actions']['cancel'] = array(
+    '#type' => 'submit',
+    '#value' => t('Cancel'),
+    '#name' => 'cancel',
+  );
+  return $form;
+  
+}
+/**
+ * validateor for nra_workbench_moderation_schedule_operation_form()
+ *
+ * check for cancel as well as validate that we have a date with which we
+ * can work
+ */
+ 
+function nra_workbench_moderation_operation_form_validate($form, $form_state) {
+  if ($form_state['triggering_element']['#name'] == 'cancel') {
+    drupal_goto();
+  }
+}
+/**
+ * submit for nra_workbench_moderation_schedule_operation_form
+ *  
+ *  for each node (comes from the build args) we want to set the schedule time
+ *  if we are doing a unpublish we use a vid of 0 (note this means that 
+ *  if any revision is set to unpublish, the current revision will be set to
+ *  be unpublished
+ */
+function nra_workbench_moderation_operation_form_submit($form, $form_state) {
+  
+  $key = $form_state['build_info']['args'][0];
+  $nodes = $form_state['build_info']['args'][1];
+  foreach($nodes as $info) {
+    $node = node_load($info['nid'], $info['vid']);
+    if(_workbench_moderation_moderate_access($node, $key)) {
+      workbench_moderation_moderate($node, $key);
+    }
+  }
+}
+
+/**
+ * Implements hook_node_revision_status().
+ */
+function nra_workbench_moderation_node_revision_status($node) {
+  if (isset($node->workbench_moderation)) {
+    if (isset($node->workbench_moderation['published']) &&
+      ($node->workbench_moderation['my_revision'] != $node->workbench_moderation['current']) &&
+      ($node->workbench_moderation['my_revision'] != $node->workbench_moderation['published'])) {
+        return variable_get('nra_workbench_moderation_archive_title', 'Archive');
+      }
+    return workbench_moderation_state_label($node->workbench_moderation['my_revision']->state);
+  }
+}
+
+/**
+ * implements hook_node_revision_filters()
+ *
+ * offer up two filtes on for workbench state (draft vs current) and one for schedule
+ * which list all scedule dates, as well as a not schedule option
+ */
+function nra_workbench_moderation_node_revision_filters() {
+  $filter['workbench_state'] = array(
+    'form' => array(
+      '#type' => 'select',
+      '#title' => t('State'),
+      '#options' => array(0=>'Any', 1=>variable_get('nra_workbench_moderation_archive_title', 'Archive')) + workbench_moderation_state_labels(),
+    ),
+  );
+  return $filter;
+}
+/**
+ * implements hook_query_node_revision_alter()
+ *
+ * look to see if there was a workbench_schedule or workbench_state filter set and if so
+ * add the correct filter
+ */ 
+function nra_workbench_moderation_query_node_revision_alter(QueryAlterableInterface $query) {
+
+  $filters = $query->getMetaData('filters');
+  if (isset($filters['workbench_state'])  && $filters['workbench_state']) {
+
+    $state = $filters['workbench_state'];
+    if($state === '1') {
+      $sub_query = db_select('workbench_moderation_node_history','wmh');
+      $sub_query->fields('wmh', array('vid'));
+      $sub_query->groupBy('wmh.vid');
+      $sub_query->having("SUM(wmh.current + wmh.published) = 0");
+      $query->condition('nr.vid', $sub_query, 'IN');
+
+    }
+    else {
+      $query->join('workbench_moderation_node_history', 'wmh', "wmh.vid = nr.vid AND wmh.current + wmh.published > 0 AND wmh.state = :state", array(':state' => $state));
+    }
+    return ;
+  }
+}
+/**
+ * implements hook_menu()
+ */
+
+function nra_workbench_moderation_menu() {
+  return array(
+    'admin/content/content-revision/workbench_operation/%/%' => array(
+      'page callback' => 'nra_workbench_moderation_operation_form_page',
+      'access arguments' => array('administer content revisions'),
+      'page arguments' => array(4,5),
+    )
+  );
+}
+

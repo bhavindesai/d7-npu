@@ -1,0 +1,12 @@
+name = Content accessibility
+description = Checks content against accessibility tests.
+package = Accessibility
+core = 7.x
+
+dependencies[] = accessibility
+; Information added by  packaging script on 2013-11-30
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "accessibility"
+datestamp = "1385783005"
+

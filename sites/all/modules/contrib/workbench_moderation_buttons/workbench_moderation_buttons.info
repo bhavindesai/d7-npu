@@ -1,0 +1,12 @@
+name = Workbench Moderation Buttons
+description = Show Workbench Moderation states as buttons instead of a dropdown.
+core = 7.x
+dependencies[] = workbench_moderation
+package = Workbench
+version = "7.x-1.0-beta2"
+
+; Information added by drush on 2014-11-17
+version = ""
+project = "workbench_moderation_buttons"
+datestamp = "1416241074"
+
